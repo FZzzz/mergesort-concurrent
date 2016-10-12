@@ -1,4 +1,5 @@
 #include "threadpool.h"
+#include <stdio.h>
 
 int task_free(task_t *the_task)
 {
@@ -12,7 +13,7 @@ int tqueue_init(tqueue_t *the_queue)
     the_queue->head = NULL;
     the_queue->tail = NULL;
     pthread_mutex_init(&(the_queue->mutex), NULL);
-    pthread_cond_init(&(the_queue->cond), NULL);
+    //pthread_cond_init(&(the_queue->cond), NULL);
     the_queue->size = 0;
     return 0;
 }
@@ -67,6 +68,7 @@ int tqueue_free(tqueue_t *the_queue)
         cur = the_queue->head;
     }
     pthread_mutex_destroy(&(the_queue->mutex));
+    //pthread_cond_destroy(&(the_queue->cond));
     return 0;
 }
 
@@ -79,8 +81,9 @@ int tpool_init(tpool_t *the_pool, uint32_t tcount, void *(*func)(void *))
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    for (uint32_t i = 0; i < tcount; ++i)
+    for (uint32_t i = 0; i < tcount; ++i) {
         pthread_create(&(the_pool->threads[i]), &attr, func, NULL);
+    }
     pthread_attr_destroy(&attr);
     return 0;
 }

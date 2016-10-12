@@ -26,6 +26,9 @@ llist_t *merge_list(llist_t *a, llist_t *b)
         llist_t *small = (llist_t *)
                          ((intptr_t) a * (a->head->data <= b->head->data) +
                           (intptr_t) b * (a->head->data > b->head->data));
+        /*TODO:
+         *  use strcmp
+         */
         if (current) {
             current->next = small->head;
             current = current->next;
@@ -93,6 +96,7 @@ void cut_func(void *data)
     llist_t *list = (llist_t *) data;
     pthread_mutex_lock(&(data_context.mutex));
     int cut_count = data_context.cut_thread_count;
+
     if (list->size > 1 && cut_count < max_cut) {
         ++data_context.cut_thread_count;
         pthread_mutex_unlock(&(data_context.mutex));
@@ -102,7 +106,7 @@ void cut_func(void *data)
         llist_t *_list = list_new();
         _list->head = list_nth(list, mid);
         _list->size = list->size - mid;
-        list_nth(list, mid - 1)->next = NULL;
+        list_nth(list, mid - 1)->next = NULL;//cut
         list->size = mid;
 
         /* create new task: left */
@@ -124,15 +128,14 @@ void cut_func(void *data)
 
 static void *task_run(void *data)
 {
-    (void) data;
     while (1) {
         task_t *_task = tqueue_pop(pool->queue);
         if (_task) {
             if (!_task->func) {
-                tqueue_push(pool->queue, _task);
+                tqueue_push(pool->queue, _task);//set queue empty and leave execution
                 break;
             } else {
-                _task->func(_task->arg);
+                _task->func(_task->arg);//call function and run
                 free(_task);
             }
         }
@@ -161,6 +164,7 @@ int main(int argc, char const *argv[])
     for (int i = 0; i < data_count; ++i) {
         long int data;
         scanf("%ld", &data);
+        printf("%ld \n" , data);
         list_add(the_list, data);
     }
 
@@ -177,7 +181,7 @@ int main(int argc, char const *argv[])
     _task->arg = the_list;
     tqueue_push(pool->queue, _task);
 
-    /* release thread pool */
+    /* release thread pool and join threads*/
     tpool_free(pool);
     return 0;
 }
