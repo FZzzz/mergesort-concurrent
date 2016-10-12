@@ -28,16 +28,8 @@ llist_t *merge_list(llist_t *a, llist_t *b)
     llist_t *_list = list_new();
     node_t *current = NULL;
     while (a->size && b->size) {
-        /*
-        llist_t *small = (llist_t *)
-                         ((intptr_t) a * (a->head->data <= b->head->data) +
-                          (intptr_t) b * (a->head->data > b->head->data));
-
-        */
         llist_t* small = (strcmp(a->head->data , b->head->data) <= 0) ? a:b;
-        /*TODO:
-         *  use strcmp
-         */
+
         if (current) {
             current->next = small->head;
             current = current->next;
@@ -188,15 +180,6 @@ int main(int argc, char const *argv[])
     fclose(input_fptr);
     printf("start merge sort\n");
 
-    /*
-    printf("input unsorted data line-by-line\n");
-    for (int i = 0; i < data_count; ++i) {
-        long int data;
-        scanf("%ld", &data);
-        //printf("%ld \n" , data);
-        list_add(the_list, data);
-    }
-    */
     FILE* exec_fptr = fopen("exec_time.csv" , "a+");
     struct timespec start = {0, 0};
     struct timespec end = {0, 0};
