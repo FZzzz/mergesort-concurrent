@@ -2,11 +2,14 @@
 #define LLIST_H_
 
 #include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-typedef intptr_t val_t;
+//typedef intptr_t val_t;
 
 typedef struct node {
-    val_t data;
+    char data[16];
     struct node *next;
 } node_t;
 
@@ -16,8 +19,8 @@ typedef struct llist {
 } llist_t;
 
 llist_t *list_new();
-int list_add(llist_t *the_list, val_t val);
-void list_print(llist_t *the_list);
+int list_add(llist_t *the_list, char* val);
+void list_print(llist_t *the_list , FILE* fptr);
 node_t *list_nth(llist_t *the_list, uint32_t index);
 
 #endif

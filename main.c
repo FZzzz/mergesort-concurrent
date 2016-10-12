@@ -1,11 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <assert.h>
 
 #include "threadpool.h"
 #include "list.h"
 
-#define USAGE "usage: ./sort [thread_count] [input_count]\n"
+#define USAGE "usage: ./sort [thread_count] [input_file]\n"
+#define CLOCK_ID CLOCK_MONOTONIC_RAW
+#define ONE_SEC 1000000000.0
 
 struct {
     pthread_mutex_t mutex;
@@ -15,7 +19,8 @@ struct {
 static llist_t *tmp_list;
 static llist_t *the_list = NULL;
 
-static int thread_count = 0, data_count = 0, max_cut = 0;
+static int thread_count = 0, max_cut = 0 , data_count = 0;
+static const char* input_file;
 static tpool_t *pool = NULL;
 
 llist_t *merge_list(llist_t *a, llist_t *b)
@@ -23,9 +28,13 @@ llist_t *merge_list(llist_t *a, llist_t *b)
     llist_t *_list = list_new();
     node_t *current = NULL;
     while (a->size && b->size) {
+        /*
         llist_t *small = (llist_t *)
                          ((intptr_t) a * (a->head->data <= b->head->data) +
                           (intptr_t) b * (a->head->data > b->head->data));
+
+        */
+        llist_t* small = (strcmp(a->head->data , b->head->data) <= 0) ? a:b;
         /*TODO:
          *  use strcmp
          */
@@ -87,7 +96,7 @@ void merge(void *data)
         task_t *_task = (task_t *) malloc(sizeof(task_t));
         _task->func = NULL;
         tqueue_push(pool->queue, _task);
-        list_print(_list);
+        //list_print(_list);
     }
 }
 
@@ -149,8 +158,11 @@ int main(int argc, char const *argv[])
         printf(USAGE);
         return -1;
     }
+
     thread_count = atoi(argv[1]);
-    data_count = atoi(argv[2]);
+    //data_count = argv[2];  --> fix this
+    input_file = argv[2];
+
     max_cut = thread_count * (thread_count <= data_count) +
               data_count * (thread_count > data_count) - 1;
 
@@ -159,14 +171,37 @@ int main(int argc, char const *argv[])
 
     /* FIXME: remove all all occurrences of printf and scanf
      * in favor of automated test flow.
-     */
+    */
+    char line[16];
+    FILE* input_fptr = fopen(input_file , "r");
+
+    assert(input_fptr && "NULL FILE PTR\n");
+
+    while (fgets(line, sizeof(line), input_fptr)) {
+        int i=0;
+        while (line[i] != '\0' && i < 16)
+            i++;
+        line[i - 1] = '\0';
+        list_add(the_list , line);
+    }
+
+    fclose(input_fptr);
+    printf("start merge sort\n");
+
+    /*
     printf("input unsorted data line-by-line\n");
     for (int i = 0; i < data_count; ++i) {
         long int data;
         scanf("%ld", &data);
-        printf("%ld \n" , data);
+        //printf("%ld \n" , data);
         list_add(the_list, data);
     }
+    */
+    FILE* exec_fptr = fopen("exec_time.csv" , "a+");
+    struct timespec start = {0, 0};
+    struct timespec end = {0, 0};
+
+    clock_gettime(CLOCK_ID , &start);
 
     /* initialize tasks inside thread pool */
     pthread_mutex_init(&(data_context.mutex), NULL);
@@ -183,5 +218,19 @@ int main(int argc, char const *argv[])
 
     /* release thread pool and join threads*/
     tpool_free(pool);
+
+    clock_gettime(CLOCK_ID , &end);
+
+    const double exec_time = (double) (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/ONE_SEC;
+    fprintf(exec_fptr , "%.10lf " , exec_time);
+
+    fclose(exec_fptr);
+
+
+    FILE* result_fptr = fopen("result.txt" , "w+");
+    assert(result_fptr && "null result file pointer");
+    list_print(the_list , result_fptr);
+    fclose(result_fptr);
+
     return 0;
 }
