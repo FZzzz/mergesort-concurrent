@@ -205,7 +205,7 @@ int main(int argc, char const *argv[])
     clock_gettime(CLOCK_ID , &end);
 
     const double exec_time = (double) (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/ONE_SEC;
-    fprintf(exec_fptr , "%.10lf " , exec_time);
+    fprintf(exec_fptr , "%d %.10lf\n" , thread_count , exec_time);
 
     fclose(exec_fptr);
 

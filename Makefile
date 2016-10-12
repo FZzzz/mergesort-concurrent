@@ -19,18 +19,16 @@ deps := $(OBJS:%.o=.%.o.d)
 sort: $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $(OBJS) -rdynamic
 
-gencsv: all
-	for i in 1 2 4 8 16 32 64 128 256; do \
-		for j in {1..20}; do \ 
-			echo $RANDOM | ./sort $i 20; \
-		done  \
-	done
+gencsv: clean all
+	for i in `seq 1 1 256`; do ./sort $$i input.txt; done
 
 check:
 	diff result.txt ./dictionary/words.txt
 
-clean:
-	rm -f $(OBJS) sort
-	@rm -rf $(deps)
+plot: gencsv
+	gnuplot myplot.gp
 
+clean:
+	rm -f $(OBJS) sort exec_time.csv
+	@rm -rf $(deps)
 -include $(deps)
