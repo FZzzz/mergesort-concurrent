@@ -82,7 +82,9 @@ int tpool_init(tpool_t *the_pool, uint32_t tcount, void *(*func)(void *))
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
     for (uint32_t i = 0; i < tcount; ++i) {
-        pthread_create(&(the_pool->threads[i]), &attr, func, NULL);
+        uint32_t *tmp = malloc(sizeof(uint32_t));
+        *tmp = i;
+        pthread_create(&(the_pool->threads[i]), &attr, func, (void *) tmp);
     }
     pthread_attr_destroy(&attr);
     return 0;

@@ -23,6 +23,8 @@ static int thread_count = 0, max_cut = 0 , data_count = 0;
 static const char* input_file;
 static tpool_t *pool = NULL;
 
+static int task_count[1024] = {0};
+
 llist_t *merge_list(llist_t *a, llist_t *b)
 {
     llist_t *_list = list_new();
@@ -129,6 +131,8 @@ void cut_func(void *data)
 
 static void *task_run(void *data)
 {
+    uint32_t *tid = (uint32_t *)data;
+    //printf("%lu \n" , pthread_self());
     while (1) {
         task_t *_task = tqueue_pop(pool->queue);
         if (_task) {
@@ -137,10 +141,12 @@ static void *task_run(void *data)
                 break;
             } else {
                 _task->func(_task->arg);//call function and run
+                task_count[ (*tid) ]++;
                 free(_task);
             }
         }
     }
+    free(data);
     pthread_exit(NULL);
 }
 
@@ -154,20 +160,20 @@ int main(int argc, char const *argv[])
     thread_count = atoi(argv[1]);
     //data_count = argv[2];  --> fix this
     input_file = argv[2];
-
-    max_cut = thread_count * (thread_count <= data_count) +
-              data_count * (thread_count > data_count) - 1;
-
+    /*
+        max_cut = thread_count * (thread_count <= data_count) +
+                  data_count * (thread_count > data_count) - 1;
+    */
     /* Read data */
     the_list = list_new();
 
-    /* FIXME: remove all all occurrences of printf and scanf
-     * in favor of automated test flow.
-    */
     char line[16];
     FILE* input_fptr = fopen(input_file , "r");
 
     assert(input_fptr && "NULL FILE PTR\n");
+#if defined(__GNUC__)
+    __builtin___clear_cache((void *) the_list , (void *) the_list + sizeof(llist_t));
+#endif
 
     while (fgets(line, sizeof(line), input_fptr)) {
         int i=0;
@@ -175,8 +181,15 @@ int main(int argc, char const *argv[])
             i++;
         line[i - 1] = '\0';
         list_add(the_list , line);
+        data_count++;
     }
 
+    max_cut = thread_count * (thread_count <= data_count) +
+              data_count * (thread_count > data_count) - 1;
+
+#if defined(__GNUC__)
+    __builtin___clear_cache((void *) the_list , (void *) the_list + sizeof(llist_t));
+#endif
     fclose(input_fptr);
     printf("start merge sort\n");
 
@@ -206,6 +219,7 @@ int main(int argc, char const *argv[])
 
     const double exec_time = (double) (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/ONE_SEC;
     fprintf(exec_fptr , "%d %.10lf\n" , thread_count , exec_time);
+    fprintf(stdout , "%.10lf ms\n" , exec_time);
 
     fclose(exec_fptr);
 
@@ -214,6 +228,14 @@ int main(int argc, char const *argv[])
     assert(result_fptr && "null result file pointer");
     list_print(the_list , result_fptr);
     fclose(result_fptr);
+
+    FILE* scalability_fptr = fopen("scalability.txt" , "w+");
+    assert(scalability_fptr && "null scala txt");
+    for(int i=0; i<thread_count; i++) {
+        fprintf(scalability_fptr , "%d %d\n",i , task_count[i]);
+    }
+    fclose(scalability_fptr);
+
 
     return 0;
 }
