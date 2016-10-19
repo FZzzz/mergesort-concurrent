@@ -12,7 +12,7 @@
 #define ONE_SEC 1000000000.0
 
 struct {
-    pthread_mutex_t mutex;
+    sem_t semaphore;
     int cut_thread_count;
 } data_context;
 
@@ -72,14 +72,14 @@ void merge(void *data)
 {
     llist_t *_list = (llist_t *) data;
     if (_list->size < (uint32_t) data_count) {
-        pthread_mutex_lock(&(data_context.mutex));
+        sem_wait(&(data_context.semaphore));
         llist_t *_t = tmp_list;
         if (!_t) {
             tmp_list = _list;
-            pthread_mutex_unlock(&(data_context.mutex));
+            sem_post(&(data_context.semaphore));
         } else {
             tmp_list = NULL;
-            pthread_mutex_unlock(&(data_context.mutex));
+            sem_post(&(data_context.semaphore));
             task_t *_task = (task_t *) malloc(sizeof(task_t));
             _task->func = merge;
             _task->arg = merge_list(_list, _t);
@@ -97,12 +97,12 @@ void merge(void *data)
 void cut_func(void *data)
 {
     llist_t *list = (llist_t *) data;
-    pthread_mutex_lock(&(data_context.mutex));
+    sem_wait(&(data_context.semaphore));
     int cut_count = data_context.cut_thread_count;
 
     if (list->size > 1 && cut_count < max_cut) {
         ++data_context.cut_thread_count;
-        pthread_mutex_unlock(&(data_context.mutex));
+        sem_post(&(data_context.semaphore));
 
         /* cut list */
         int mid = list->size / 2;
@@ -124,7 +124,7 @@ void cut_func(void *data)
         _task->arg = list;
         tqueue_push(pool->queue, _task);
     } else {
-        pthread_mutex_unlock(&(data_context.mutex));
+        sem_post(&(data_context.semaphore));
         merge(merge_sort(list));
     }
 }
@@ -200,7 +200,7 @@ int main(int argc, char const *argv[])
     clock_gettime(CLOCK_ID , &start);
 
     /* initialize tasks inside thread pool */
-    pthread_mutex_init(&(data_context.mutex), NULL);
+    sem_init(&(data_context.semaphore),0,1);
     data_context.cut_thread_count = 0;
     tmp_list = NULL;
     pool = (tpool_t *) malloc(sizeof(tpool_t));

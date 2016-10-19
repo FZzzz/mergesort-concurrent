@@ -2,6 +2,7 @@
 #define THREAD_H_
 
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -15,7 +16,7 @@ int task_free(task_t *the_task);
 
 typedef struct {
     task_t *head, *tail;
-    pthread_mutex_t mutex;
+    sem_t semaphore;
     pthread_cond_t cond;
     uint32_t size;
 } tqueue_t;
