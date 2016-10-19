@@ -86,6 +86,7 @@ void merge(void *data)
         while (llist_context.hold)
             pthread_cond_wait(&(llist_context.cond),&(llist_context.mutex));
         llist_context.hold = 1;
+        pthread_mutex_unlock(&(llist_context.mutex));
 
         llist_t *_t = tmp_list;
         if (!_t) {
@@ -99,6 +100,7 @@ void merge(void *data)
         }
 
         // finish task and wake up others
+        pthread_mutex_lock(&(llist_context.mutex));
         llist_context.hold = 0;
         pthread_cond_signal(&(llist_context.cond));
         pthread_mutex_unlock(&(llist_context.mutex));
@@ -121,10 +123,13 @@ void cut_func(void *data)
         pthread_cond_wait(&(data_context.cond),&(data_context.mutex));
     }
     data_context.hold = 1;
+    pthread_mutex_unlock(&(data_context.mutex));
     int cut_count = data_context.cut_thread_count;
 
     if (list->size > 1 && cut_count < max_cut) {
         ++data_context.cut_thread_count;
+
+        pthread_mutex_lock(&(data_context.mutex));
         data_context.hold = 0;
         pthread_cond_signal(&(data_context.cond));
         pthread_mutex_unlock(&(data_context.mutex));
@@ -149,6 +154,7 @@ void cut_func(void *data)
         _task->arg = list;
         tqueue_push(pool->queue, _task);
     } else {
+        pthread_mutex_lock(&(data_context.mutex));
         data_context.hold = 0;
         pthread_cond_signal(&(data_context.cond));
         pthread_mutex_unlock(&(data_context.mutex));
