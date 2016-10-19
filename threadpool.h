@@ -17,6 +17,7 @@ typedef struct {
     task_t *head, *tail;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
+    int hold;
     uint32_t size;
 } tqueue_t;
 

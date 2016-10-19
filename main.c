@@ -13,8 +13,16 @@
 
 struct {
     pthread_mutex_t mutex;
+    pthread_cond_t cond;
     int cut_thread_count;
+    int hold;
 } data_context;
+
+struct {
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+    int hold;
+} llist_context;
 
 static llist_t *tmp_list;
 static llist_t *the_list = NULL;
@@ -72,19 +80,29 @@ void merge(void *data)
 {
     llist_t *_list = (llist_t *) data;
     if (_list->size < (uint32_t) data_count) {
-        pthread_mutex_lock(&(data_context.mutex));
+
+        // if hold is holded by other, go sleep
+        pthread_mutex_lock(&(llist_context.mutex));
+        while (llist_context.hold)
+            pthread_cond_wait(&(llist_context.cond),&(llist_context.mutex));
+        llist_context.hold = 1;
+
         llist_t *_t = tmp_list;
         if (!_t) {
             tmp_list = _list;
-            pthread_mutex_unlock(&(data_context.mutex));
         } else {
             tmp_list = NULL;
-            pthread_mutex_unlock(&(data_context.mutex));
             task_t *_task = (task_t *) malloc(sizeof(task_t));
             _task->func = merge;
             _task->arg = merge_list(_list, _t);
             tqueue_push(pool->queue, _task);
         }
+
+        // finish task and wake up others
+        llist_context.hold = 0;
+        pthread_cond_signal(&(llist_context.cond));
+        pthread_mutex_unlock(&(llist_context.mutex));
+
     } else {
         the_list = _list;
         task_t *_task = (task_t *) malloc(sizeof(task_t));
@@ -97,11 +115,18 @@ void merge(void *data)
 void cut_func(void *data)
 {
     llist_t *list = (llist_t *) data;
+
     pthread_mutex_lock(&(data_context.mutex));
+    while (data_context.hold) {
+        pthread_cond_wait(&(data_context.cond),&(data_context.mutex));
+    }
+    data_context.hold = 1;
     int cut_count = data_context.cut_thread_count;
 
     if (list->size > 1 && cut_count < max_cut) {
         ++data_context.cut_thread_count;
+        data_context.hold = 0;
+        pthread_cond_signal(&(data_context.cond));
         pthread_mutex_unlock(&(data_context.mutex));
 
         /* cut list */
@@ -124,7 +149,10 @@ void cut_func(void *data)
         _task->arg = list;
         tqueue_push(pool->queue, _task);
     } else {
+        data_context.hold = 0;
+        pthread_cond_signal(&(data_context.cond));
         pthread_mutex_unlock(&(data_context.mutex));
+
         merge(merge_sort(list));
     }
 }
@@ -201,8 +229,15 @@ int main(int argc, char const *argv[])
 
     /* initialize tasks inside thread pool */
     pthread_mutex_init(&(data_context.mutex), NULL);
+    pthread_cond_init(&(data_context.cond), NULL);
     data_context.cut_thread_count = 0;
+    data_context.hold = 0;
+
+    pthread_mutex_init(&(llist_context.mutex), NULL);
+    pthread_cond_init(&(llist_context.cond), NULL);
+    llist_context.hold = 0;
     tmp_list = NULL;
+
     pool = (tpool_t *) malloc(sizeof(tpool_t));
     tpool_init(pool, thread_count, task_run);
 
@@ -222,7 +257,6 @@ int main(int argc, char const *argv[])
     fprintf(stdout , "%.10lf ms\n" , exec_time);
 
     fclose(exec_fptr);
-
 
     FILE* result_fptr = fopen("result.txt" , "w+");
     assert(result_fptr && "null result file pointer");
