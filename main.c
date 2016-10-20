@@ -219,7 +219,7 @@ int main(int argc, char const *argv[])
 
     const double exec_time = (double) (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec)/ONE_SEC;
     fprintf(exec_fptr , "%d %.10lf\n" , thread_count , exec_time);
-    fprintf(stdout , "%.10lf ms\n" , exec_time);
+    fprintf(stdout , "#mergesort-concurrency-time %.10lf ms\n" , exec_time);
 
     fclose(exec_fptr);
 

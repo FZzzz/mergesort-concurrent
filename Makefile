@@ -37,6 +37,18 @@ variance:
 	python stat.py
 	gnuplot scala_plot.gp
 
+thread = 128
+
+lock:
+	@echo > tmpt_lock.txt
+	@for i in `seq 1 1 100`; do \
+		echo $$i ${thread}; \
+		mutrace ./sort $(thread) input.txt 2>> tmpt_lock.txt 1>> tmpt_lock.txt; \
+		echo "#threads_num $(thread)" 1>> tmpt_lock.txt; \
+		echo "==divider==" 1>> tmpt_lock.txt \
+	;done
+	@./lock_parser.py
+
 clean:
 	rm -f $(OBJS) sort exec_time.csv
 	@rm -rf $(deps)
