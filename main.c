@@ -16,10 +16,20 @@ struct {
     int cut_thread_count;
 } data_context;
 
+#if defined(UNIFORM)
+typedef struct cut_type {
+    llist_t *list;
+    int cut_count;
+} cut_t;
+#endif
+
 static llist_t *tmp_list;
 static llist_t *the_list = NULL;
 
 static int thread_count = 0, max_cut = 0 , data_count = 0;
+#if defined(UNIFORM)
+static int unit = 0;
+#endif
 static const char* input_file;
 static tpool_t *pool = NULL;
 
@@ -96,6 +106,44 @@ void merge(void *data)
 
 void cut_func(void *data)
 {
+#if defined(UNIFORM)
+    cut_t *cut_arg = (cut_t *)data;
+    llist_t *list = cut_arg->list;
+    int cut_count = cut_arg->cut_count;
+
+    if (list->size > 1 && cut_count > 1) {
+        /* cut list */
+        int mid = cut_count / 2;
+        llist_t *_list = list_new();
+        _list->head = list_nth(list, 0);
+        _list->size = mid*unit;
+        list->head = list_nth(list, mid*unit);
+        list_nth(_list, mid*unit - 1)->next = NULL;//cut
+        list->size = list->size - mid*unit;
+
+        /* create new task: left */
+        task_t *_task = (task_t *) malloc(sizeof(task_t));
+        cut_t *_cut_arg = (cut_t *) malloc(sizeof(cut_t));
+        _cut_arg->list = _list;
+        _cut_arg->cut_count = mid;
+
+        _task->func = cut_func;
+        _task->arg = _cut_arg;
+        tqueue_push(pool->queue, _task);
+
+        /* create new task: right */
+        _task = (task_t *) malloc(sizeof(task_t));
+        _cut_arg = (cut_t *) malloc(sizeof(task_t));
+        _cut_arg->list = list;
+        _cut_arg->cut_count = cut_count - mid;
+
+        _task->func = cut_func;
+        _task->arg = _cut_arg;
+        tqueue_push(pool->queue, _task);
+    } else {
+        merge(merge_sort(list));
+    }
+#else
     llist_t *list = (llist_t *) data;
     pthread_mutex_lock(&(data_context.mutex));
     int cut_count = data_context.cut_thread_count;
@@ -127,6 +175,7 @@ void cut_func(void *data)
         pthread_mutex_unlock(&(data_context.mutex));
         merge(merge_sort(list));
     }
+#endif
 }
 
 static void *task_run(void *data)
@@ -186,6 +235,9 @@ int main(int argc, char const *argv[])
 
     max_cut = thread_count * (thread_count <= data_count) +
               data_count * (thread_count > data_count) - 1;
+#if defined(UNIFORM)
+    unit = data_count / (max_cut+1);
+#endif
 
 #if defined(__GNUC__)
     __builtin___clear_cache((void *) the_list , (void *) the_list + sizeof(llist_t));
@@ -208,8 +260,17 @@ int main(int argc, char const *argv[])
 
     /* launch the first task */
     task_t *_task = (task_t *) malloc(sizeof(task_t));
+#if defined(UNIFORM)
+    cut_t *_cut_arg = (cut_t *) malloc(sizeof(cut_t));
+    _cut_arg->list = the_list;
+    _cut_arg->cut_count = max_cut + 1;
+#endif
     _task->func = cut_func;
+#if defined(UNIFORM)
+    _task->arg = _cut_arg;
+#else
     _task->arg = the_list;
+#endif
     tqueue_push(pool->queue, _task);
 
     /* release thread pool and join threads*/

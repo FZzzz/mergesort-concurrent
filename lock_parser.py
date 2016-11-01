@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
-INPUT_FILE = 'tmpt_lock.txt'
-OUTPUT_FILE = 'lock.csv'
+import os
+import sys
 
 is_threads = lambda value: len(value) == 2 \
 	and value[0] == '#threads_num'
@@ -21,6 +21,12 @@ is_divider = lambda value: len(value) > 0 \
 	and value[0] == "==divider=="
 
 if __name__ == '__main__':
+
+	if len(sys.argv) < 2:
+		os.exit("./lock_parser [output.txt]")
+
+	INPUT_FILE = 'tmpt_lock.txt'
+	OUTPUT_FILE = sys.argv[1]
 
 	fin = open(INPUT_FILE, 'r'); #using default encoding
 	fout = open(OUTPUT_FILE, 'w'); #using default encoding
